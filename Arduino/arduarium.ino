@@ -1,7 +1,7 @@
 #include <ESP8266WiFi.h>
 
-const char* wifi_SSID = "PivniKralovstvi";
-const char* wifi_PASS = "Prdelka555";
+const char* wifi_SSID = "a";
+const char* wifi_PASS = "a";
 const char* server = "192.168.0.25";
 
 
