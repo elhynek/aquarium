@@ -1,42 +1,60 @@
+//WiFi module library
 #include <ESP8266WiFi.h>
 
-#define PIN_TEMP_VCC D1
-#define PIN_PH_VCC D2
-#define PIN_TDS_VCC D3
+//Temperature sensor DS18B20 libraries
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
+#define PIN_ANALOG_READ A0 //pin to read analog data from
+#define PIN_TDS_VCC D3     //pin to power TDS sensor
+#define PIN_TEMP_DAT D4    //pin to read temperature data (digital)
+#define PIN_PH_VCC D5      //pin to power pH sensor
+
+#define VREF 5.0           //analog reference voltage (V)
+
+//Count of measurements to get median from
 #define MCOUNT 10
 
-float g_measurements_buffer[MCOUNT]
+//Predefined waiting times
+#define PAUSE_LOOP 10000
+#define PAUSE_MEASUREMENT 1000
+#define PAUSE_COOLDOWN 5000
+
+//Create instance of oneWireDS from OneWire library
+OneWire oneWireDS(PIN_TEMP_DAT);
+//Create instance of sensorDS from DallasTemperature
+DallasTemperature sensorDS(&oneWireDS);
+
+float g_measurements_buffer[MCOUNT];
 
 const float ph_slope_line_value = -5.70; 
 const float ph_calibration_value = 21.34;
 
-const char* wifi_SSID = "SSID of your WiFi";
-const char* wifi_PASS = "Password to your WiFi";
-const char* server = "192.168.1.1"; //IP of backend server
-
-const int g_section_pause = 10000;
-const int g_measurement_pause = 100000;
+const char* wifi_SSID = "PivniKralovstvi";
+const char* wifi_PASS = "Prdelka555";
+const char* server = "192.168.0.25"; //IP of backend server
 
 WiFiClient client;
-
  
 void setup() {
-  //serial logger
+  //Serial logger
   Serial.begin(115200);
 
-  //set pins as Vcc output for multiplexing and set them to 0
-  pinMode(PIN_TEMP_VCC,OUTPUT);
+  //Turn on communication with temperature sensor
+  sensorDS.begin();
+  sensorDS.requestTemperatures();
+  //Set pins as Vcc output for multiplexing and set them to 0
   pinMode(PIN_PH_VCC,OUTPUT);
   pinMode(PIN_TDS_VCC,OUTPUT);
-  digitalWrite(PIN_TEMP_VCC, LOW);
   digitalWrite(PIN_PH_VCC, LOW);
   digitalWrite(PIN_TDS_VCC, LOW);
-
+  
+  //Set analog pin as input for measurements
+  pinMode(PIN_ANALOG_READ, INPUT);
   
   WiFi.begin(wifi_SSID, wifi_PASS);
   
-  //waiting for successful connection
+  //Waiting for successful connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -50,44 +68,50 @@ void setup() {
 
 void loop() {
 
-  float val_temp = 0;
-  float val_ph = 0;
-  float val_tds = 0;
+  float val_temp = 0.0;
+  float val_ph = 0.0;
+  float val_tds = 0.0;
 
   //Temperature measurement
-  digitalWrite(PIN_TDS_VCC, LOW);
-  digitalWrite(PIN_TEMP_VCC, HIGH);
-  delay(5000);
   for (byte i = 0; i < MCOUNT; i++){
     //Temperature Measurement
-
-    delay(g_measurement_pause);
+    g_measurements_buffer[i] = sensorDS.getTempCByIndex(0);
+    delay(PAUSE_MEASUREMENT);
   }
   val_temp = getMedian(g_measurements_buffer);
-
+  Serial.print("Temperature: ");
+  Serial.println(val_temp);
 
   //pH measurement
-  digitalWrite(PIN_TEMP_VCC, LOW);
   digitalWrite(PIN_PH_VCC, HIGH);
-  delay(5000);
+  digitalWrite(PIN_TDS_VCC, LOW);
+  delay(PAUSE_COOLDOWN);
   for (byte i = 0; i < MCOUNT; i++){
     //pH Measurement with recalculation for pH 0 - 14
-    g_measurements_buffer[i] = * 5.0 / 1024;
-    delay(g_measurement_pause);
+    g_measurements_buffer[i] = analogRead(PIN_ANALOG_READ) * 5.0 / 1024;
+    delay(PAUSE_MEASUREMENT);
   }
   val_ph = ph_slope_line_value * getMedian(g_measurements_buffer) + ph_calibration_value;
-
+  val_ph *= -1;
+  Serial.print("pH Value: ");
+  Serial.println(val_ph);
+  
   //TDS measurement
   digitalWrite(PIN_PH_VCC, LOW);
   digitalWrite(PIN_TDS_VCC, HIGH);
-  delay(5000);
+  delay(PAUSE_COOLDOWN);
   for (byte i = 0; i < MCOUNT; i++){
-    //TDS Measurement
-
-    delay(g_measurement_pause);
+    g_measurements_buffer[i] = analogRead(PIN_ANALOG_READ);
+    delay(PAUSE_MEASUREMENT);
   }
+  //calculation of TDS based on manufacturer parameters and recommended compensations
+  //float avg_voltage = getMedian(g_measurements_buffer) * (float)VREF / 1024;
+  //float compensationCoefficient = 1.0 + 0.02 * (val_temp - 25.0);
+  //float compensationVoltage = avg_voltage / compensationCoefficient;
+  //val_tds = (133.42 * compensationVoltage * compensationVoltage * compensationVoltage - 255.86 * compensationVoltage * compensationVoltage + 857.39 * compensationVoltage) * 0.5;
   val_tds = getMedian(g_measurements_buffer);
-
+  Serial.print("TDS Value: ");
+  Serial.println(val_tds);
 
 
   //send data to aquaserver
@@ -102,7 +126,7 @@ void loop() {
 
   
   Serial.println("Delay before next scan");
-  delay(30000);
+  delay(PAUSE_LOOP);
 }
 
 
@@ -126,10 +150,10 @@ void sendPostRequest(float val_temp, float val_ph, float val_tds){
   client.print(msg);
 
   Serial.print("POST sent: ");
-  //Serial.print(cas);
+  Serial.print(msg);
 }
 
-float getMedian(int arr[]){
+float getMedian(float arr[]){
   float tmp_arr[MCOUNT];
   for (byte i = 0; i < MCOUNT; i++)
     tmp_arr[i] = arr[i];
