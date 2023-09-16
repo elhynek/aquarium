@@ -30,8 +30,8 @@ float g_measurements_buffer[MCOUNT];
 const float ph_slope_line_value = -5.70; 
 const float ph_calibration_value = 21.34;
 
-const char* wifi_SSID = "PivniKralovstvi";
-const char* wifi_PASS = "Prdelka555";
+const char* wifi_SSID = "SSID of your WiFi";
+const char* wifi_PASS = "Password to your WiFi";
 const char* server = "192.168.0.25"; //IP of backend server
 
 WiFiClient client;
