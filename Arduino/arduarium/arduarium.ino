@@ -32,12 +32,11 @@ bool g_current_lights_on = false;
 const float ph_slope_line_value = -5.70; 
 const float ph_calibration_value = 21.34 + 2.0;
 
-const char* wifi_SSID = "PivniKralovstvi";
-const char* wifi_PASS = "Prdelka555";
+const char* wifi_SSID = "Your WiFi SSID";
+const char* wifi_PASS = "Your WiFi password";
 const char* server = "192.168.0.25"; //IP of backend server
 const char* serverTS = "api.thingspeak.com";
-//const char* tsAPIkey = "1UGU8KWPGZOIWZBH";
-const String tsAPIkey = "1UGU8KWPGZOIWZBH";
+const String tsAPIkey = "Your ThinkSpeak API KEY";
 
 WiFiClient client;
  
