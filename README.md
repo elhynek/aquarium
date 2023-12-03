@@ -7,6 +7,6 @@ Notes:
 -Check VREF value - e.g. ESP8266 has voltage 3.3V
 
 Below is schema of connection with WeMos board
-![My Image](other/Schema_v3.png)
+![My Image](other/Schema_v4.png)
 
 
